@@ -44,7 +44,8 @@ class WC_Payments_Account implements MultiCurrencyAccountInterface {
 	const NOX_PROFILE_OPTION_KEY    = 'woocommerce_woopayments_nox_profile';
 	const NOX_ONBOARDING_LOCKED_KEY = 'woocommerce_woopayments_nox_onboarding_locked';
 
-	const STORE_SETUP_SYNC_ACTION = 'wcpay_store_setup_sync';
+	const STORE_SETUP_SYNC_ACTION    = 'wcpay_store_setup_sync';
+	const KYC_COMPLETION_DATE_OPTION = 'wcpay_kyc_completion_date';
 
 	/**
 	 * Client for making requests to the WooCommerce Payments API
@@ -127,6 +128,7 @@ class WC_Payments_Account implements MultiCurrencyAccountInterface {
 		// Add handlers for inbox notes and reminders.
 		add_action( 'woocommerce_payments_account_refreshed', [ $this, 'handle_instant_deposits_inbox_note' ] );
 		add_action( 'woocommerce_payments_account_refreshed', [ $this, 'handle_loan_approved_inbox_note' ] );
+		add_action( 'woocommerce_payments_account_refreshed', [ $this, 'maybe_record_kyc_completion_date' ] );
 		add_action( self::INSTANT_DEPOSITS_REMINDER_ACTION, [ $this, 'handle_instant_deposits_inbox_reminder' ] );
 
 		// Add all other hooks.
@@ -2603,6 +2605,31 @@ class WC_Payments_Account implements MultiCurrencyAccountInterface {
 
 		WC_Payments_Notes_Loan_Approved::set_loan_details( $loan_details );
 		WC_Payments_Notes_Loan_Approved::possibly_add_note();
+	}
+
+	/**
+	 * Records the date a merchant's account first becomes KYC-approved and payments-enabled on live mode.
+	 * Stored once and never overwritten so the Post-KYC activation nudge clock starts from the real approval date.
+	 *
+	 * @param array|bool $account The account data passed by woocommerce_payments_account_refreshed.
+	 *
+	 * @return void
+	 */
+	public function maybe_record_kyc_completion_date( $account ): void {
+		if ( empty( $account ) || ! is_array( $account ) ) {
+			return;
+		}
+
+		if ( empty( $account['payments_enabled'] ) || empty( $account['is_live'] ) || ! empty( $account['is_test_drive'] ) ) {
+			return;
+		}
+
+		// Preserve the original date — do not overwrite on subsequent refreshes.
+		if ( get_option( self::KYC_COMPLETION_DATE_OPTION ) ) {
+			return;
+		}
+
+		update_option( self::KYC_COMPLETION_DATE_OPTION, time(), false );
 	}
 
 	/**
