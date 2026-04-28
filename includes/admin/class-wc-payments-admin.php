@@ -1697,6 +1697,14 @@ class WC_Payments_Admin {
 			return;
 		}
 
+		$stage      = $this->get_post_kyc_activation_stage();
+		$shown_meta = self::USER_META_POST_KYC_ACTIVATION_DISMISSED_PREFIX . $stage . '_shown';
+
+		if ( ! get_user_meta( get_current_user_id(), $shown_meta, true ) ) {
+			Tracker::track_admin( 'wcpay_post_kyc_activation_notice_shown', [ 'stage' => $stage ] );
+			update_user_meta( get_current_user_id(), $shown_meta, true );
+		}
+
 		echo '<div id="wcpay-post-kyc-activation-notice"></div>';
 	}
 
@@ -1722,6 +1730,8 @@ class WC_Payments_Admin {
 		if ( null === $stage ) {
 			return;
 		}
+
+		Tracker::track_admin( 'wcpay_post_kyc_activation_notice_dismissed', [ 'stage' => $stage ] );
 
 		update_user_meta( get_current_user_id(), self::USER_META_POST_KYC_ACTIVATION_DISMISSED_PREFIX . $stage, time() );
 
