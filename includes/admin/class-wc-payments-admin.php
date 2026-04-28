@@ -203,6 +203,13 @@ class WC_Payments_Admin {
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_wc_payment_settings_spotlight' ] );
 		add_action( 'admin_footer', [ $this, 'inject_payment_settings_spotlight_container' ] );
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_wc_payments_review_prompt' ] );
+		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_post_kyc_activation_notice_script' ] );
+		add_action( 'admin_init', [ $this, 'hide_post_kyc_activation_notice' ] );
+
+		if ( isset( $_GET['page'] ) && 'wc-settings' === sanitize_key( wp_unslash( $_GET['page'] ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'general'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			add_action( "woocommerce_sections_{$tab}", [ $this, 'maybe_show_post_kyc_activation_notice' ] );
+		}
 	}
 
 	/**
@@ -742,6 +749,17 @@ class WC_Payments_Admin {
 			plugins_url( 'dist/wc-payments-review-prompt.css', WCPAY_PLUGIN_FILE ),
 			[],
 			WC_Payments::get_file_version( 'dist/wc-payments-review-prompt.css' ),
+			'all'
+		);
+
+		WC_Payments::register_script_with_dependencies( 'WCPAY_POST_KYC_ACTIVATION_NOTICE', 'dist/wc-payments-post-kyc-activation-notice' );
+		wp_set_script_translations( 'WCPAY_POST_KYC_ACTIVATION_NOTICE', 'woocommerce-payments' );
+
+		WC_Payments_Utils::register_style(
+			'WCPAY_POST_KYC_ACTIVATION_NOTICE',
+			plugins_url( 'dist/wc-payments-post-kyc-activation-notice.css', WCPAY_PLUGIN_FILE ),
+			[],
+			WC_Payments::get_file_version( 'dist/wc-payments-post-kyc-activation-notice.css' ),
 			'all'
 		);
 	}
@@ -1631,6 +1649,84 @@ class WC_Payments_Admin {
 	 */
 	public function inject_review_prompt_container() {
 		echo '<div id="wcpay-review-prompt"></div>';
+	}
+
+	/**
+	 * Enqueues the Post-KYC activation notice script and style when eligible.
+	 *
+	 * @return void
+	 */
+	public function enqueue_post_kyc_activation_notice_script(): void {
+		if ( ! $this->should_show_post_kyc_activation_notice() ) {
+			return;
+		}
+
+		$screen = get_current_screen();
+		if ( $screen && ! in_array( $screen->id, wc_get_screen_ids(), true ) && ! wc_admin_is_registered_page() ) {
+			return;
+		}
+
+		$stage = $this->get_post_kyc_activation_stage();
+
+		wp_localize_script(
+			'WCPAY_POST_KYC_ACTIVATION_NOTICE',
+			'wcpayPostKycActivationNoticeSettings',
+			[
+				'stage'      => $stage,
+				'dismissUrl' => wp_nonce_url(
+					add_query_arg( 'wcpay-hide-post-kyc-activation-notice', '1' ),
+					'wcpay_hide_post_kyc_activation_notice_nonce',
+					'_wcpay_post_kyc_activation_notice_nonce'
+				),
+			]
+		);
+
+		wp_enqueue_script( 'WCPAY_POST_KYC_ACTIVATION_NOTICE' );
+		wp_enqueue_style( 'WCPAY_POST_KYC_ACTIVATION_NOTICE' );
+	}
+
+	/**
+	 * Renders the mount point div for the Post-KYC activation notice.
+	 * Hooked to woocommerce_sections_{$tab} so it appears inside the page content
+	 * area on WooCommerce settings pages.
+	 *
+	 * @return void
+	 */
+	public function maybe_show_post_kyc_activation_notice(): void {
+		if ( ! $this->should_show_post_kyc_activation_notice() ) {
+			return;
+		}
+
+		echo '<div id="wcpay-post-kyc-activation-notice"></div>';
+	}
+
+	/**
+	 * Persists the per-stage dismissal in user meta when the dismiss link is followed.
+	 *
+	 * @return void
+	 */
+	public function hide_post_kyc_activation_notice(): void {
+		if ( ! isset( $_GET['wcpay-hide-post-kyc-activation-notice'] ) || ! isset( $_GET['_wcpay_post_kyc_activation_notice_nonce'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+			return;
+		}
+
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			return;
+		}
+
+		if ( ! wp_verify_nonce( wc_clean( wp_unslash( $_GET['_wcpay_post_kyc_activation_notice_nonce'] ) ), 'wcpay_hide_post_kyc_activation_notice_nonce' ) ) {
+			return;
+		}
+
+		$stage = $this->get_post_kyc_activation_stage();
+		if ( null === $stage ) {
+			return;
+		}
+
+		update_user_meta( get_current_user_id(), self::USER_META_POST_KYC_ACTIVATION_DISMISSED_PREFIX . $stage, time() );
+
+		wp_safe_redirect( remove_query_arg( [ 'wcpay-hide-post-kyc-activation-notice', '_wcpay_post_kyc_activation_notice_nonce' ] ) );
+		exit;
 	}
 
 	/**
