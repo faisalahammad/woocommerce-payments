@@ -3985,4 +3985,99 @@ class WC_Payments_Account_Test extends WCPAY_UnitTestCase {
 
 		$this->wcpay_account->get_cached_account_data();
 	}
+
+	// -------------------------------------------------------------------------
+	// maybe_record_kyc_completion_date tests
+	// -------------------------------------------------------------------------
+
+	public function test_maybe_record_kyc_completion_date_stores_date_for_eligible_account(): void {
+		delete_option( WC_Payments_Account::KYC_COMPLETION_DATE_OPTION );
+
+		$this->wcpay_account->maybe_record_kyc_completion_date(
+			[
+				'payments_enabled' => true,
+				'is_live'          => true,
+				'is_test_drive'    => false,
+			]
+		);
+
+		$this->assertNotFalse( get_option( WC_Payments_Account::KYC_COMPLETION_DATE_OPTION ) );
+
+		delete_option( WC_Payments_Account::KYC_COMPLETION_DATE_OPTION );
+	}
+
+	public function test_maybe_record_kyc_completion_date_skips_empty_account(): void {
+		delete_option( WC_Payments_Account::KYC_COMPLETION_DATE_OPTION );
+
+		$this->wcpay_account->maybe_record_kyc_completion_date( [] );
+
+		$this->assertFalse( get_option( WC_Payments_Account::KYC_COMPLETION_DATE_OPTION ) );
+	}
+
+	public function test_maybe_record_kyc_completion_date_skips_test_drive_account(): void {
+		delete_option( WC_Payments_Account::KYC_COMPLETION_DATE_OPTION );
+
+		$this->wcpay_account->maybe_record_kyc_completion_date(
+			[
+				'payments_enabled' => true,
+				'is_live'          => true,
+				'is_test_drive'    => true,
+			]
+		);
+
+		$this->assertFalse( get_option( WC_Payments_Account::KYC_COMPLETION_DATE_OPTION ) );
+	}
+
+	public function test_maybe_record_kyc_completion_date_skips_when_payments_not_enabled(): void {
+		delete_option( WC_Payments_Account::KYC_COMPLETION_DATE_OPTION );
+
+		$this->wcpay_account->maybe_record_kyc_completion_date(
+			[
+				'payments_enabled' => false,
+				'is_live'          => true,
+				'is_test_drive'    => false,
+			]
+		);
+
+		$this->assertFalse( get_option( WC_Payments_Account::KYC_COMPLETION_DATE_OPTION ) );
+	}
+
+	public function test_maybe_record_kyc_completion_date_skips_when_not_live(): void {
+		delete_option( WC_Payments_Account::KYC_COMPLETION_DATE_OPTION );
+
+		$this->wcpay_account->maybe_record_kyc_completion_date(
+			[
+				'payments_enabled' => true,
+				'is_live'          => false,
+				'is_test_drive'    => false,
+			]
+		);
+
+		$this->assertFalse( get_option( WC_Payments_Account::KYC_COMPLETION_DATE_OPTION ) );
+	}
+
+	public function test_maybe_record_kyc_completion_date_preserves_existing_date(): void {
+		$original_date = time() - 10 * DAY_IN_SECONDS;
+		update_option( WC_Payments_Account::KYC_COMPLETION_DATE_OPTION, $original_date );
+
+		$this->wcpay_account->maybe_record_kyc_completion_date(
+			[
+				'payments_enabled' => true,
+				'is_live'          => true,
+				'is_test_drive'    => false,
+			]
+		);
+
+		$this->assertSame( $original_date, (int) get_option( WC_Payments_Account::KYC_COMPLETION_DATE_OPTION ) );
+
+		delete_option( WC_Payments_Account::KYC_COMPLETION_DATE_OPTION );
+	}
+
+	public function test_invalidate_post_kyc_activation_notice_cache_deletes_transient(): void {
+		set_transient( WC_Payments_Account::POST_KYC_ACTIVATION_ELIGIBLE_TRANSIENT, '1', HOUR_IN_SECONDS );
+
+		$this->wcpay_account->invalidate_post_kyc_activation_notice_cache();
+
+		$this->assertFalse( get_transient( WC_Payments_Account::POST_KYC_ACTIVATION_ELIGIBLE_TRANSIENT ) );
+	}
 }
