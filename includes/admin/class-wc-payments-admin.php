@@ -47,6 +47,22 @@ class WC_Payments_Admin {
 	const PAYMENTS_SUBMENU_SLUG = 'wc-admin&path=/payments/overview';
 
 	/**
+	 * User meta key prefix for per-stage Post-KYC activation notice dismissals.
+	 * Append the stage day number (7, 14, or 30) to form the full key.
+	 *
+	 * @var string
+	 */
+	const USER_META_POST_KYC_ACTIVATION_DISMISSED_PREFIX = 'wcpay_post_kyc_activation_stage_';
+
+
+	/**
+	 * Day thresholds for the three Post-KYC activation nudge stages.
+	 *
+	 * @var int[]
+	 */
+	const POST_KYC_ACTIVATION_STAGE_DAYS = [ 7, 14, 30 ];
+
+	/**
 	 * Client for making requests to the WooCommerce Payments API.
 	 *
 	 * @var WC_Payments_API_Client
@@ -1615,5 +1631,125 @@ class WC_Payments_Admin {
 	 */
 	public function inject_review_prompt_container() {
 		echo '<div id="wcpay-review-prompt"></div>';
+	}
+
+	/**
+	 * Whether the Post-KYC activation notice should be shown to the current user.
+	 *
+	 * @return bool
+	 */
+	public function should_show_post_kyc_activation_notice(): bool {
+		if ( ! WC_Payments_Features::is_post_kyc_activation_program_enabled() ) {
+			return false;
+		}
+
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			return false;
+		}
+
+		$stage = $this->get_post_kyc_activation_stage();
+		if ( null === $stage ) {
+			return false;
+		}
+
+		if ( get_user_meta( get_current_user_id(), self::USER_META_POST_KYC_ACTIVATION_DISMISSED_PREFIX . $stage, true ) ) {
+			return false;
+		}
+
+		return $this->is_post_kyc_activation_notice_eligible();
+	}
+
+	/**
+	 * Returns the current nudge stage (7, 14, or 30) based on days elapsed since KYC completion,
+	 * or null if the KYC date is not recorded yet or fewer than 7 days have passed.
+	 *
+	 * @return int|null
+	 */
+	public function get_post_kyc_activation_stage(): ?int {
+		$kyc_date = (int) get_option( WC_Payments_Account::KYC_COMPLETION_DATE_OPTION, 0 );
+		if ( ! $kyc_date ) {
+			return null;
+		}
+
+		$days_elapsed = (int) floor( ( time() - $kyc_date ) / DAY_IN_SECONDS );
+
+		if ( $days_elapsed >= 30 ) {
+			return 30;
+		}
+
+		if ( $days_elapsed >= 14 ) {
+			return 14;
+		}
+
+		if ( $days_elapsed >= 7 ) {
+			return 7;
+		}
+
+		return null;
+	}
+
+	/**
+	 * Returns whether the Post-KYC activation notice is eligible to be shown, with a one-hour transient cache.
+	 *
+	 * @return bool
+	 */
+	private function is_post_kyc_activation_notice_eligible(): bool {
+		$cached = get_transient( WC_Payments_Account::POST_KYC_ACTIVATION_ELIGIBLE_TRANSIENT );
+		if ( false !== $cached ) {
+			return '1' === $cached;
+		}
+
+		$eligible = $this->compute_post_kyc_activation_eligibility();
+		set_transient( WC_Payments_Account::POST_KYC_ACTIVATION_ELIGIBLE_TRANSIENT, $eligible ? '1' : '0', HOUR_IN_SECONDS );
+
+		return $eligible;
+	}
+
+	/**
+	 * Evaluates all eligibility conditions for the Post-KYC activation notice.
+	 *
+	 * Conditions:
+	 * - Account is connected and valid.
+	 * - Not a test-drive account.
+	 * - Payments are enabled.
+	 * - Plugin is in live mode (not test, not dev).
+	 * - KYC completion date has been recorded.
+	 * - Merchant has no WooPayments orders yet.
+	 *
+	 * @return bool
+	 */
+	private function compute_post_kyc_activation_eligibility(): bool {
+		if ( ! $this->wcpay_gateway->is_connected() || ! $this->account->is_stripe_account_valid() ) {
+			return false;
+		}
+
+		$account_status = $this->account->get_account_status_data();
+
+		if ( ! empty( $account_status['testDrive'] ) ) {
+			return false;
+		}
+
+		if ( empty( $account_status['paymentsEnabled'] ) ) {
+			return false;
+		}
+
+		if ( WC_Payments::mode()->is_test() || WC_Payments::mode()->is_dev() ) {
+			return false;
+		}
+
+		if ( ! get_option( WC_Payments_Account::KYC_COMPLETION_DATE_OPTION ) ) {
+			return false;
+		}
+
+		$orders = wc_get_orders(
+			[
+				'payment_method' => 'woocommerce_payments',
+				'limit'          => 1,
+				'return'         => 'ids',
+				'status'         => [ 'wc-completed', 'wc-processing' ],
+			]
+		);
+
+		return empty( $orders );
 	}
 }

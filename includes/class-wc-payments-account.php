@@ -44,8 +44,9 @@ class WC_Payments_Account implements MultiCurrencyAccountInterface {
 	const NOX_PROFILE_OPTION_KEY    = 'woocommerce_woopayments_nox_profile';
 	const NOX_ONBOARDING_LOCKED_KEY = 'woocommerce_woopayments_nox_onboarding_locked';
 
-	const STORE_SETUP_SYNC_ACTION    = 'wcpay_store_setup_sync';
-	const KYC_COMPLETION_DATE_OPTION = 'wcpay_kyc_completion_date';
+	const STORE_SETUP_SYNC_ACTION                = 'wcpay_store_setup_sync';
+	const KYC_COMPLETION_DATE_OPTION             = 'wcpay_kyc_completion_date';
+	const POST_KYC_ACTIVATION_ELIGIBLE_TRANSIENT = 'wcpay_post_kyc_activation_eligible';
 
 	/**
 	 * Client for making requests to the WooCommerce Payments API
@@ -129,6 +130,7 @@ class WC_Payments_Account implements MultiCurrencyAccountInterface {
 		add_action( 'woocommerce_payments_account_refreshed', [ $this, 'handle_instant_deposits_inbox_note' ] );
 		add_action( 'woocommerce_payments_account_refreshed', [ $this, 'handle_loan_approved_inbox_note' ] );
 		add_action( 'woocommerce_payments_account_refreshed', [ $this, 'maybe_record_kyc_completion_date' ] );
+		add_action( 'woocommerce_payments_account_refreshed', [ $this, 'invalidate_post_kyc_activation_notice_cache' ] );
 		add_action( self::INSTANT_DEPOSITS_REMINDER_ACTION, [ $this, 'handle_instant_deposits_inbox_reminder' ] );
 
 		// Add all other hooks.
@@ -2630,6 +2632,15 @@ class WC_Payments_Account implements MultiCurrencyAccountInterface {
 		}
 
 		update_option( self::KYC_COMPLETION_DATE_OPTION, time(), false );
+	}
+
+	/**
+	 * Clears the Post-KYC activation eligibility transient, forcing re-evaluation on the next request.
+	 *
+	 * @return void
+	 */
+	public function invalidate_post_kyc_activation_notice_cache(): void {
+		delete_transient( self::POST_KYC_ACTIVATION_ELIGIBLE_TRANSIENT );
 	}
 
 	/**
