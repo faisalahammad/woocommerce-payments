@@ -326,6 +326,11 @@ declare global {
 		isChangingPayment?: boolean;
 	};
 
+	const wcpayPostKycActivationNoticeSettings: {
+		stage: 7 | 14 | 30;
+		dismissUrl: string;
+	};
+
 	interface Window {
 		wcpaySettings: typeof wcpaySettings;
 		wc: typeof wc;
@@ -335,6 +340,7 @@ declare global {
 		wooPaymentsPaymentMethodsConfig?: typeof wooPaymentsPaymentMethodsConfig;
 		wcpayReviewPromptSettings?: typeof wcpayReviewPromptSettings;
 		wcpayTestToLiveNoticeSettings?: typeof wcpayTestToLiveNoticeSettings;
+		wcpayPostKycActivationNoticeSettings?: typeof wcpayPostKycActivationNoticeSettings;
 		// eslint-disable-next-line @typescript-eslint/naming-convention
 		wcpay_upe_config?: typeof wcpay_upe_config;
 	}
