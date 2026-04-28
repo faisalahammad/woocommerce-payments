@@ -32,6 +32,7 @@ class WC_Payments_Features {
 	const WCPAY_DYNAMIC_CHECKOUT_PLACE_ORDER_BUTTON_FLAG_NAME = '_wcpay_feature_dynamic_checkout_place_order_button';
 	const AMAZON_PAY_FLAG_NAME                                = '_wcpay_feature_amazon_pay';
 	const MC_CACHE_OPTIMIZED_FLAG_NAME                        = '_wcpay_feature_mc_cache_optimized';
+	const POST_KYC_ACTIVATION_PROGRAM_FLAG_NAME               = '_wcpay_feature_post_kyc_activation_program';
 
 	/**
 	 * Indicates whether card payments are enabled for this (Stripe) account.
@@ -374,6 +375,15 @@ class WC_Payments_Features {
 	 */
 	public static function is_mc_cache_optimized_enabled(): bool {
 		return '1' === get_option( self::MC_CACHE_OPTIMIZED_FLAG_NAME, '0' );
+	}
+
+	/**
+	 * Checks whether the Post-KYC activation program (Day 7 / 14 / 30 nudges) is enabled.
+	 *
+	 * @return bool
+	 */
+	public static function is_post_kyc_activation_program_enabled(): bool {
+		return '1' === get_option( self::POST_KYC_ACTIVATION_PROGRAM_FLAG_NAME, '0' );
 	}
 
 	/**
