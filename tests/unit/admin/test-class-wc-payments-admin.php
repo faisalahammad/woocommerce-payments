@@ -777,7 +777,6 @@ class WC_Payments_Admin_Test extends WCPAY_UnitTestCase {
 	 */
 	private function set_up_post_kyc_global_state( int $days_since_kyc = 8, bool $has_orders = false ): void {
 		delete_transient( WC_Payments_Account::POST_KYC_ACTIVATION_ELIGIBLE_TRANSIENT );
-		update_option( WC_Payments_Features::POST_KYC_ACTIVATION_PROGRAM_FLAG_NAME, '1' );
 		update_option( WC_Payments_Account::KYC_COMPLETION_DATE_OPTION, time() - $days_since_kyc * DAY_IN_SECONDS );
 
 		WC_Payments::mode()->live();
@@ -796,7 +795,6 @@ class WC_Payments_Admin_Test extends WCPAY_UnitTestCase {
 
 	private function tear_down_post_kyc_global_state(): void {
 		WC_Payments::mode()->live();
-		delete_option( WC_Payments_Features::POST_KYC_ACTIVATION_PROGRAM_FLAG_NAME );
 		delete_option( WC_Payments_Account::KYC_COMPLETION_DATE_OPTION );
 		delete_transient( WC_Payments_Account::POST_KYC_ACTIVATION_ELIGIBLE_TRANSIENT );
 
@@ -870,16 +868,6 @@ class WC_Payments_Admin_Test extends WCPAY_UnitTestCase {
 		$admin = $this->make_admin_for_post_kyc_test();
 
 		$this->assertTrue( $admin->should_show_post_kyc_activation_notice() );
-
-		$this->tear_down_post_kyc_global_state();
-	}
-
-	public function test_should_show_post_kyc_activation_notice_returns_false_when_feature_flag_disabled(): void {
-		$this->set_up_post_kyc_global_state();
-		update_option( WC_Payments_Features::POST_KYC_ACTIVATION_PROGRAM_FLAG_NAME, '0' );
-		$admin = $this->make_admin_for_post_kyc_test();
-
-		$this->assertFalse( $admin->should_show_post_kyc_activation_notice() );
 
 		$this->tear_down_post_kyc_global_state();
 	}
