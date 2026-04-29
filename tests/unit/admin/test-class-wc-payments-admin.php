@@ -788,6 +788,7 @@ class WC_Payments_Admin_Test extends WCPAY_UnitTestCase {
 			$order = wc_create_order();
 			$order->set_payment_method( 'woocommerce_payments' );
 			$order->set_status( 'completed' );
+			$order->update_meta_data( WC_Payments_Order_Service::WCPAY_MODE_META_KEY, \WCPay\Constants\Order_Mode::PRODUCTION );
 			$order->save();
 			$this->test_order_id = $order->get_id();
 		}
@@ -954,6 +955,23 @@ class WC_Payments_Admin_Test extends WCPAY_UnitTestCase {
 		$admin = $this->make_admin_for_post_kyc_test();
 
 		$this->assertFalse( $admin->should_show_post_kyc_activation_notice() );
+
+		$this->tear_down_post_kyc_global_state();
+	}
+
+	public function test_should_show_post_kyc_activation_notice_returns_true_when_merchant_only_has_test_orders(): void {
+		$this->set_up_post_kyc_global_state();
+
+		$order = wc_create_order();
+		$order->set_payment_method( 'woocommerce_payments' );
+		$order->set_status( 'completed' );
+		$order->update_meta_data( WC_Payments_Order_Service::WCPAY_MODE_META_KEY, \WCPay\Constants\Order_Mode::TEST );
+		$order->save();
+		$this->test_order_id = $order->get_id();
+
+		$admin = $this->make_admin_for_post_kyc_test();
+
+		$this->assertTrue( $admin->should_show_post_kyc_activation_notice() );
 
 		$this->tear_down_post_kyc_global_state();
 	}
