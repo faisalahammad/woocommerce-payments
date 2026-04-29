@@ -1745,10 +1745,6 @@ class WC_Payments_Admin {
 	 * @return bool
 	 */
 	public function should_show_post_kyc_activation_notice(): bool {
-		if ( ! WC_Payments_Features::is_post_kyc_activation_program_enabled() ) {
-			return false;
-		}
-
 		if ( ! current_user_can( 'manage_woocommerce' ) ) {
 			return false;
 		}
