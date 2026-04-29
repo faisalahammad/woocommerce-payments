@@ -11,26 +11,32 @@ import BannerNotice from '../banner-notice';
 
 const stageContent: Record< number, { heading: string; body: string } > = {
 	7: {
-		heading: __( 'Ready to make your first sale?', 'woocommerce-payments' ),
+		heading: __(
+			'Your account is live — time for your first sale',
+			'woocommerce-payments'
+		),
 		body: __(
-			'Your account is approved and ready to accept payments. Add your products and share your store to get started.',
+			"Your payments are set up and ready. Now it's about getting eyes on your store — share your link, tell your network, and make your first sale.",
 			'woocommerce-payments'
 		),
 	},
 	14: {
-		heading: __( 'Still setting up your store?', 'woocommerce-payments' ),
+		heading: __(
+			'Two weeks in — have you shared your store yet?',
+			'woocommerce-payments'
+		),
 		body: __(
-			"It's been two weeks since your account was approved. Make sure your products, shipping, and checkout are ready so you don't miss your first sale.",
+			'Your account is fully approved and accepting payments. Share your store with your first potential customers to get that first sale.',
 			'woocommerce-payments'
 		),
 	},
 	30: {
 		heading: __(
-			'30-day check-in: your first sale is within reach',
+			'Your payments are ready — your first sale can be too',
 			'woocommerce-payments'
 		),
 		body: __(
-			"Your account has been approved for 30 days. Stores that complete their setup early see faster first sales — let's make sure yours is ready.",
+			'Everything on the payments side is ready. The next step is getting your first customer through the door — share your store link and start spreading the word.',
 			'woocommerce-payments'
 		),
 	},
