@@ -9,6 +9,7 @@ use Automattic\Jetpack\Identity_Crisis as Jetpack_Identity_Crisis;
 use Automattic\Jetpack\Constants;
 use Automattic\WooCommerce\Admin\Features\Features;
 use WCPay\Constants\Intent_Status;
+use WCPay\Constants\Order_Mode;
 use WCPay\Core\Server\Request;
 use WCPay\Database_Cache;
 use WCPay\Inline_Script_Payloads\Woo_Payments_Payment_Method_Definitions;
@@ -1849,6 +1850,10 @@ class WC_Payments_Admin {
 				'limit'          => 1,
 				'return'         => 'ids',
 				'status'         => [ 'wc-completed', 'wc-processing' ],
+				// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_key
+				'meta_key'       => WC_Payments_Order_Service::WCPAY_MODE_META_KEY,
+				// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+				'meta_value'     => Order_Mode::PRODUCTION,
 			]
 		);
 
