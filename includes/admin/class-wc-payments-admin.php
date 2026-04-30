@@ -15,7 +15,6 @@ use WCPay\Database_Cache;
 use WCPay\Inline_Script_Payloads\Woo_Payments_Payment_Method_Definitions;
 use WCPay\Inline_Script_Payloads\Woo_Payments_Payment_Methods_Config;
 use WCPay\Logger;
-use WCPay\Tracker;
 use WCPay\WooPay\WooPay_Utilities;
 
 defined( 'ABSPATH' ) || exit;
@@ -1702,7 +1701,7 @@ class WC_Payments_Admin {
 		$shown_meta = self::USER_META_POST_KYC_ACTIVATION_DISMISSED_PREFIX . $stage . '_shown';
 
 		if ( ! get_user_meta( get_current_user_id(), $shown_meta, true ) ) {
-			Tracker::track_admin( 'wcpay_post_kyc_activation_notice_shown', [ 'stage' => $stage ] );
+			$this->record_tracks_event( 'wcpay_post_kyc_activation_notice_shown', [ 'stage' => $stage ] );
 			update_user_meta( get_current_user_id(), $shown_meta, true );
 		}
 
@@ -1732,7 +1731,7 @@ class WC_Payments_Admin {
 			return;
 		}
 
-		Tracker::track_admin( 'wcpay_post_kyc_activation_notice_dismissed', [ 'stage' => $stage ] );
+		$this->record_tracks_event( 'wcpay_post_kyc_activation_notice_dismissed', [ 'stage' => $stage ] );
 
 		update_user_meta( get_current_user_id(), self::USER_META_POST_KYC_ACTIVATION_DISMISSED_PREFIX . $stage, time() );
 
@@ -1858,5 +1857,21 @@ class WC_Payments_Admin {
 		);
 
 		return empty( $orders );
+	}
+
+	/**
+	 * Records a Tracks event.
+	 * Immediately via WC_Tracks::record_event() instead of the WC_Tracks queue.
+	 * The queue is flushed in admin_footer or shutdown — neither of which is reached in redirect
+	 * handlers that call wp_safe_redirect() + exit, so queued events would be silently lost.
+	 *
+	 * @param string $event      Event name.
+	 * @param array  $properties Event properties.
+	 * @return void
+	 */
+	private function record_tracks_event( string $event, array $properties = [] ): void {
+		if ( class_exists( 'WC_Tracks' ) ) {
+			WC_Tracks::record_event( $event, $properties );
+		}
 	}
 }
