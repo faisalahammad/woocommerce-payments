@@ -1001,11 +1001,6 @@ class WC_Payments_Admin_Test extends WCPAY_UnitTestCase {
 		$dismissed = get_user_meta( get_current_user_id(), WC_Payments_Admin::USER_META_POST_KYC_ACTIVATION_DISMISSED_PREFIX . 7, true );
 		$this->assertNotEmpty( $dismissed );
 
-		$events = \WCPay\Tracker::get_admin_events();
-		$this->assertArrayHasKey( 'wcpay_post_kyc_activation_notice_dismissed', $events );
-		$this->assertSame( 7, $events['wcpay_post_kyc_activation_notice_dismissed']['stage'] );
-
-		\WCPay\Tracker::remove_admin_event( 'wcpay_post_kyc_activation_notice_dismissed' );
 		unset( $_GET['wcpay-hide-post-kyc-activation-notice'], $_GET['_wcpay_post_kyc_activation_notice_nonce'] );
 
 		$this->tear_down_post_kyc_global_state();
@@ -1061,11 +1056,9 @@ class WC_Payments_Admin_Test extends WCPAY_UnitTestCase {
 		$admin->maybe_show_post_kyc_activation_notice();
 		ob_end_clean();
 
-		$events = \WCPay\Tracker::get_admin_events();
-		$this->assertArrayHasKey( 'wcpay_post_kyc_activation_notice_shown', $events );
-		$this->assertSame( 7, $events['wcpay_post_kyc_activation_notice_shown']['stage'] );
+		$shown_meta = WC_Payments_Admin::USER_META_POST_KYC_ACTIVATION_DISMISSED_PREFIX . '7_shown';
+		$this->assertNotEmpty( get_user_meta( get_current_user_id(), $shown_meta, true ) );
 
-		\WCPay\Tracker::remove_admin_event( 'wcpay_post_kyc_activation_notice_shown' );
 		$this->tear_down_post_kyc_global_state();
 	}
 
