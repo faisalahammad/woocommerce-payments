@@ -63,6 +63,24 @@ class WC_Payments_Admin {
 	const POST_KYC_ACTIVATION_STAGE_DAYS = [ 7, 14, 30 ];
 
 	/**
+	 * Number of days after KYC completion during which the Post-KYC activation nudge
+	 * may be shown. Past this window, the nudge is no longer eligible and the eligibility
+	 * machinery (including the live-sale order query) is short-circuited entirely.
+	 *
+	 * @var int
+	 */
+	const POST_KYC_ACTIVATION_NOTICE_WINDOW_DAYS = 60;
+
+	/**
+	 * Option key holding a one-way "this store has had at least one live WooPayments sale" flag.
+	 * Once set to '1', it never reverts. Used to avoid re-running an expensive `wc_get_orders`
+	 * meta query for the lifetime of the store.
+	 *
+	 * @var string
+	 */
+	const HAS_LIVE_SALE_OPTION = 'wcpay_has_live_sale';
+
+	/**
 	 * Client for making requests to the WooCommerce Payments API.
 	 *
 	 * @var WC_Payments_API_Client
@@ -205,6 +223,8 @@ class WC_Payments_Admin {
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_wc_payments_review_prompt' ] );
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_post_kyc_activation_notice_script' ] );
 		add_action( 'admin_init', [ $this, 'hide_post_kyc_activation_notice' ] );
+		add_action( 'woocommerce_order_status_processing', [ $this, 'maybe_record_first_live_sale' ] );
+		add_action( 'woocommerce_order_status_completed', [ $this, 'maybe_record_first_live_sale' ] );
 
 		if ( isset( $_GET['page'] ) && 'wc-settings' === sanitize_key( wp_unslash( $_GET['page'] ) ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
 			$tab = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : 'general'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
@@ -1740,6 +1760,29 @@ class WC_Payments_Admin {
 	}
 
 	/**
+	 * Sets the one-way `HAS_LIVE_SALE_OPTION` flag the first time a live WooPayments
+	 * order reaches a successful status. Subsequent invocations short-circuit on the
+	 * autoloaded option read so they cost nothing for the lifetime of the store.
+	 *
+	 * @param int $order_id Order ID from the woocommerce_order_status_* hook.
+	 * @return void
+	 */
+	public function maybe_record_first_live_sale( $order_id ): void {
+		if ( get_option( self::HAS_LIVE_SALE_OPTION ) ) {
+			return;
+		}
+
+		$order = wc_get_order( $order_id );
+		if ( ! $order ) {
+			return;
+		}
+
+		if ( Order_Mode::PRODUCTION === $order->get_meta( WC_Payments_Order_Service::WCPAY_MODE_META_KEY ) ) {
+			update_option( self::HAS_LIVE_SALE_OPTION, '1', true );
+		}
+	}
+
+	/**
 	 * Whether the Post-KYC activation notice should be shown to the current user.
 	 *
 	 * @return bool
@@ -1774,6 +1817,10 @@ class WC_Payments_Admin {
 		}
 
 		$days_elapsed = (int) floor( ( time() - $kyc_date ) / DAY_IN_SECONDS );
+
+		if ( $days_elapsed >= self::POST_KYC_ACTIVATION_NOTICE_WINDOW_DAYS ) {
+			return null;
+		}
 
 		if ( $days_elapsed >= 30 ) {
 			return 30;
@@ -1843,6 +1890,23 @@ class WC_Payments_Admin {
 			return false;
 		}
 
+		return ! $this->store_has_live_sale();
+	}
+
+	/**
+	 * Returns whether the store has had at least one live (production) WooPayments sale.
+	 *
+	 * Reads a one-way option set by `maybe_record_first_live_sale()`; falls back to a
+	 * single `wc_get_orders` meta query if the option has not been populated yet (e.g.,
+	 * for stores that took their first live sale before this feature shipped).
+	 *
+	 * @return bool
+	 */
+	private function store_has_live_sale(): bool {
+		if ( get_option( self::HAS_LIVE_SALE_OPTION ) ) {
+			return true;
+		}
+
 		$orders = wc_get_orders(
 			[
 				'payment_method' => 'woocommerce_payments',
@@ -1856,7 +1920,12 @@ class WC_Payments_Admin {
 			]
 		);
 
-		return empty( $orders );
+		if ( ! empty( $orders ) ) {
+			update_option( self::HAS_LIVE_SALE_OPTION, '1', true );
+			return true;
+		}
+
+		return false;
 	}
 
 	/**
