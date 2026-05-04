@@ -6,6 +6,7 @@
  */
 
 use WCPay\Constants\Fraud_Meta_Box_Type;
+use WCPay\Constants\Order_Mode;
 use WCPay\Constants\Order_Status;
 use WCPay\Constants\Intent_Status;
 use WCPay\Constants\Payment_Method;
@@ -127,6 +128,15 @@ class WC_Payments_Order_Service {
 	const WCPAY_MODE_META_KEY = '_wcpay_mode';
 
 	/**
+	 * Option key holding a one-way "this store has had at least one live WooPayments sale" flag.
+	 * Once set to '1', it never reverts. Used to avoid re-running an expensive `wc_get_orders`
+	 * meta query for the lifetime of the store.
+	 *
+	 * @const string
+	 */
+	const HAS_LIVE_SALE_OPTION = 'wcpay_has_live_sale';
+
+	/**
 	 * Meta key used to store payment transaction Id.
 	 *
 	 * @const string
@@ -189,6 +199,44 @@ class WC_Payments_Order_Service {
 	 */
 	public function __construct( WC_Payments_API_Client $api_client ) {
 		$this->api_client = $api_client;
+	}
+
+	/**
+	 * Registers order-domain hooks. Must run on every request (not just admin)
+	 * so customer checkouts trigger the first-live-sale flag.
+	 *
+	 * @return void
+	 */
+	public function init_hooks(): void {
+		add_action( 'woocommerce_order_status_processing', [ $this, 'maybe_record_first_live_sale' ] );
+		add_action( 'woocommerce_order_status_completed', [ $this, 'maybe_record_first_live_sale' ] );
+	}
+
+	/**
+	 * Sets the one-way `HAS_LIVE_SALE_OPTION` flag the first time a live WooPayments
+	 * order reaches a successful status. Subsequent invocations short-circuit on the
+	 * autoloaded option read so they cost nothing for the lifetime of the store.
+	 *
+	 * @param int $order_id Order ID from the woocommerce_order_status_* hook.
+	 * @return void
+	 */
+	public function maybe_record_first_live_sale( $order_id ): void {
+		if ( get_option( self::HAS_LIVE_SALE_OPTION ) ) {
+			return;
+		}
+
+		$order = wc_get_order( $order_id );
+		if ( ! $order ) {
+			return;
+		}
+
+		if ( Order_Mode::PRODUCTION === $order->get_meta( self::WCPAY_MODE_META_KEY ) ) {
+			update_option( self::HAS_LIVE_SALE_OPTION, '1', true );
+
+			if ( class_exists( 'WC_Tracks' ) ) {
+				WC_Tracks::record_event( 'wcpay_first_live_sale' );
+			}
+		}
 	}
 
 	/**

@@ -648,7 +648,7 @@ class WC_Payments_Admin_Banner {
 	/**
 	 * Returns whether the store has had at least one live (production) WooPayments sale.
 	 *
-	 * Reads a one-way option set by `WC_Payments_Admin::maybe_record_first_live_sale()`;
+	 * Reads a one-way option set by `WC_Payments_Order_Service::maybe_record_first_live_sale()`;
 	 * falls back to a single `wc_get_orders` meta query if the option has not been
 	 * populated yet (e.g., for stores that took their first live sale before this
 	 * feature shipped).
@@ -656,7 +656,7 @@ class WC_Payments_Admin_Banner {
 	 * @return bool
 	 */
 	private function store_has_live_sale(): bool {
-		if ( get_option( WC_Payments_Admin::HAS_LIVE_SALE_OPTION ) ) {
+		if ( get_option( WC_Payments_Order_Service::HAS_LIVE_SALE_OPTION ) ) {
 			return true;
 		}
 
@@ -674,7 +674,7 @@ class WC_Payments_Admin_Banner {
 		);
 
 		if ( ! empty( $orders ) ) {
-			update_option( WC_Payments_Admin::HAS_LIVE_SALE_OPTION, '1', true );
+			update_option( WC_Payments_Order_Service::HAS_LIVE_SALE_OPTION, '1', true );
 			return true;
 		}
 

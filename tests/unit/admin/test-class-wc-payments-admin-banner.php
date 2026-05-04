@@ -449,7 +449,7 @@ class WC_Payments_Admin_Banner_Test extends WCPAY_UnitTestCase {
 	 */
 	private function set_up_post_kyc_global_state( int $days_since_kyc = 8, bool $has_orders = false ): void {
 		delete_transient( WC_Payments_Account::POST_KYC_ACTIVATION_ELIGIBLE_TRANSIENT );
-		delete_option( WC_Payments_Admin::HAS_LIVE_SALE_OPTION );
+		delete_option( WC_Payments_Order_Service::HAS_LIVE_SALE_OPTION );
 		update_option( WC_Payments_Account::KYC_COMPLETION_DATE_OPTION, time() - $days_since_kyc * DAY_IN_SECONDS );
 
 		WC_Payments::mode()->live();
@@ -470,7 +470,7 @@ class WC_Payments_Admin_Banner_Test extends WCPAY_UnitTestCase {
 	private function tear_down_post_kyc_global_state(): void {
 		WC_Payments::mode()->live();
 		delete_option( WC_Payments_Account::KYC_COMPLETION_DATE_OPTION );
-		delete_option( WC_Payments_Admin::HAS_LIVE_SALE_OPTION );
+		delete_option( WC_Payments_Order_Service::HAS_LIVE_SALE_OPTION );
 		delete_transient( WC_Payments_Account::POST_KYC_ACTIVATION_ELIGIBLE_TRANSIENT );
 
 		foreach ( [ 7, 14, 30 ] as $stage ) {

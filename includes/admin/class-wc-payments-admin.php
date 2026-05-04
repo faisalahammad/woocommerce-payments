@@ -9,7 +9,6 @@ use Automattic\Jetpack\Identity_Crisis as Jetpack_Identity_Crisis;
 use Automattic\Jetpack\Constants;
 use Automattic\WooCommerce\Admin\Features\Features;
 use WCPay\Constants\Intent_Status;
-use WCPay\Constants\Order_Mode;
 use WCPay\Core\Server\Request;
 use WCPay\Database_Cache;
 use WCPay\Inline_Script_Payloads\Woo_Payments_Payment_Method_Definitions;
@@ -45,15 +44,6 @@ class WC_Payments_Admin {
 	 * @var string
 	 */
 	const PAYMENTS_SUBMENU_SLUG = 'wc-admin&path=/payments/overview';
-
-	/**
-	 * Option key holding a one-way "this store has had at least one live WooPayments sale" flag.
-	 * Once set to '1', it never reverts. Used to avoid re-running an expensive `wc_get_orders`
-	 * meta query for the lifetime of the store.
-	 *
-	 * @var string
-	 */
-	const HAS_LIVE_SALE_OPTION = 'wcpay_has_live_sale';
 
 	/**
 	 * Client for making requests to the WooCommerce Payments API.
@@ -196,8 +186,6 @@ class WC_Payments_Admin {
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_wc_payment_settings_spotlight' ] );
 		add_action( 'admin_footer', [ $this, 'inject_payment_settings_spotlight_container' ] );
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_wc_payments_review_prompt' ] );
-		add_action( 'woocommerce_order_status_processing', [ $this, 'maybe_record_first_live_sale' ] );
-		add_action( 'woocommerce_order_status_completed', [ $this, 'maybe_record_first_live_sale' ] );
 	}
 
 	/**
@@ -1626,28 +1614,5 @@ class WC_Payments_Admin {
 	 */
 	public function inject_review_prompt_container() {
 		echo '<div id="wcpay-review-prompt"></div>';
-	}
-
-	/**
-	 * Sets the one-way `HAS_LIVE_SALE_OPTION` flag the first time a live WooPayments
-	 * order reaches a successful status. Subsequent invocations short-circuit on the
-	 * autoloaded option read so they cost nothing for the lifetime of the store.
-	 *
-	 * @param int $order_id Order ID from the woocommerce_order_status_* hook.
-	 * @return void
-	 */
-	public function maybe_record_first_live_sale( $order_id ): void {
-		if ( get_option( self::HAS_LIVE_SALE_OPTION ) ) {
-			return;
-		}
-
-		$order = wc_get_order( $order_id );
-		if ( ! $order ) {
-			return;
-		}
-
-		if ( Order_Mode::PRODUCTION === $order->get_meta( WC_Payments_Order_Service::WCPAY_MODE_META_KEY ) ) {
-			update_option( self::HAS_LIVE_SALE_OPTION, '1', true );
-		}
 	}
 }
